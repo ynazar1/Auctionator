@@ -90,13 +90,32 @@ end
 
 if GameTooltip.SetRecipeResultItem then -- Dragonflight onwards
   TooltipHandlers["SetRecipeResultItem"] = function(tip, recipeID, reagents, allocations, recipeLevel, qualityID)
-    local outputInfo = C_TradeSkillUI.GetRecipeOutputItemData(recipeID, reagents, allocations, qualityID)
-    local outputLink = outputInfo and outputInfo.hyperlink
+    local outputLink
+    -- Use GetRecipeOutputLink when Crafting page visible (same resolution as profit line for quality items)
+    if ProfessionsFrame and ProfessionsFrame.CraftingPage and ProfessionsFrame.CraftingPage:IsVisible() then
+      local schematicForm = ProfessionsFrame.CraftingPage.SchematicForm
+      outputLink = schematicForm and Auctionator.CraftingInfo.GetRecipeOutputLink(schematicForm, qualityID)
+    end
+    if not outputLink and qualityID then
+      local qualitiesItemIDs = C_TradeSkillUI.GetRecipeQualityItemIDs(recipeID)
+      if qualitiesItemIDs and #qualitiesItemIDs > 1 then
+        local qualityIDs = C_TradeSkillUI.GetQualitiesForRecipe(recipeID)
+        local idx = tIndexOf(qualityIDs, qualityID)
+        if idx then outputLink = select(2, C_Item.GetItemInfo(qualitiesItemIDs[idx])) end
+      end
+    end
+    if not outputLink then
+      local out = C_TradeSkillUI.GetRecipeOutputItemData(recipeID, reagents or {}, allocations, qualityID)
+      outputLink = out and out.hyperlink
+    end
+    if not outputLink and Auctionator.CraftingInfo and Auctionator.CraftingInfo.EnchantSpellsToItems and Auctionator.CraftingInfo.EnchantSpellsToItems[recipeID] then
+      local itemID = Auctionator.CraftingInfo.EnchantSpellsToItems[recipeID][1]
+      if itemID then outputLink = select(2, C_Item.GetItemInfo(itemID)) end
+    end
 
     if outputLink then
-      local recipeSchematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false, recipeLevel)
-
-      Auctionator.Tooltip.ShowTipWithPricing(tip, outputLink, recipeSchematic.quantityMin)
+      local schematic = C_TradeSkillUI.GetRecipeSchematic(recipeID, false, recipeLevel or 0)
+      Auctionator.Tooltip.ShowTipWithPricing(tip, outputLink, schematic and schematic.quantityMin or 1)
     end
   end
 end
